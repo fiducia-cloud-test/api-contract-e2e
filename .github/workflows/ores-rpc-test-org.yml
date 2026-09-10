@@ -1,0 +1,178 @@
+name: DEN-3959 RPC config test-org admission
+
+on:
+  pull_request:
+    paths:
+      - ".ores-rpc.toml"
+      - ".cli-flags.toml"
+      - ".github/workflows/ores-rpc-test-org.yml"
+  push:
+    branches: [main]
+    paths:
+      - ".ores-rpc.toml"
+      - ".cli-flags.toml"
+      - ".github/workflows/ores-rpc-test-org.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ores-rpc-test-org-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  rpc-config:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          show-progress: false
+          fetch-depth: 1
+      - name: Verify exact candidate revision
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - name: Check out reviewed api-docs RPC config implementation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ORESoftware/api-docs
+          ref: 12127a82ff1c0c34096faaf6df1a2a8484ea2feb
+          path: .contract/api-docs
+          persist-credentials: false
+          show-progress: false
+          fetch-depth: 1
+      - name: Install Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - name: Admit repository profile and adversarial consumer matrix
+        run: |
+          set -euo pipefail
+          RPC=.contract/api-docs/scripts/ores_rpc_config.py
+          python3 "$RPC" --repo-root . --manifest .ores-rpc.toml check
+          python3 "$RPC" --repo-root . --manifest .ores-rpc.toml normalize > /tmp/ores-rpc-normalized.json
+          python3 - <<'PY'
+          import json, pathlib, subprocess, tomllib
+          rpc = pathlib.Path('.contract/api-docs/scripts/ores_rpc_config.py')
+          manifest = pathlib.Path('.ores-rpc.toml')
+          tmp = pathlib.Path('.tmp-ores-rpc-negative.toml')
+          def invoke(path, *tail):
+              return subprocess.run(['python3', str(rpc), '--repo-root', '.', '--manifest', str(path), *tail], text=True, capture_output=True, check=False)
+          current = invoke(manifest, 'normalize')
+          assert current.returncode == 0, current.stderr
+          normalized = json.loads(current.stdout)
+          assert normalized['schemaVersion'] == 'ores.rpc.config.v1' and normalized['strict'] is True
+          roles = {t['role'] for t in normalized['targets']}
+          expected = {'client-only': {'client'}, 'server-only': {'server'}, 'hybrid': {'client','server'}}[normalized['repositoryMode']]
+          assert roles == expected, (roles, expected)
+          for target in normalized['targets']:
+              resolved = invoke(manifest, 'resolve', '--target', target['name'])
+              assert resolved.returncode == 0, (target['name'], resolved.stderr)
+              assert json.loads(resolved.stdout)['name'] == target['name']
+          authored = tomllib.loads(manifest.read_text())
+          flags_contract = authored.get('flagsContract')
+          if flags_contract:
+              flags_doc = tomllib.loads(pathlib.Path(flags_contract).read_text())
+              flag_envs = {row.get('env') for row in flags_doc.get('flags', {}).values() if isinstance(row, dict)}
+              for binding in authored.get('env', []):
+                  if binding['allowArgv']:
+                      assert binding['env'] in flag_envs, binding
+                  if binding['secret']:
+                      assert binding['env'] not in flag_envs, binding
+          base = '''schemaVersion = "ores.rpc.config.v1"
+          repositoryMode = "client-only"
+          strict = true
+          [[targets]]
+          name = "client"
+          role = "client"
+          roots = ["."]
+          rpcVersion = "v1"
+          transports = ["http"]
+          framing = "json"
+          '''
+          cases = {
+              'config-unknown-key': base.replace('strict = true', 'strict = true\nunexpected = true'),
+              'target-root-path': base.replace('roots = ["."]', 'roots = ["../escape"]'),
+              'repository-role-mismatch': base.replace('repositoryMode = "client-only"', 'repositoryMode = "server-only"'),
+              'v1-tcp-framing': base.replace('transports = ["http"]', 'transports = ["http", "tcp"]'),
+              'v2-nats-unsupported': base.replace('rpcVersion = "v1"', 'rpcVersion = "v2"').replace('transports = ["http"]', 'transports = ["nats"]').replace('framing = "json"', 'framing = "frame"'),
+              'server-client-field': '''schemaVersion = "ores.rpc.config.v1"
+          repositoryMode = "server-only"
+          strict = true
+          [[targets]]
+          name = "server"
+          role = "server"
+          roots = ["."]
+          rpcVersion = "v1"
+          transports = ["http"]
+          framing = "json"
+          endpointEnv = "API_BASE_URL"
+          ''',
+              'endpoint-env-undeclared': base + 'endpointEnv = "MISSING_ENDPOINT"\n',
+              'propagate-header': base + 'propagateHeaders = ["Bad Header"]\n',
+          }
+          try:
+              for expected_code, text in cases.items():
+                  tmp.write_text(text)
+                  result = invoke(tmp, 'check')
+                  assert result.returncode == 2, (expected_code, result.returncode, result.stdout, result.stderr)
+                  assert result.stderr.strip().endswith(expected_code), (expected_code, result.stderr)
+              tmp.write_text('''schemaVersion = "ores.rpc.config.v1"
+          repositoryMode = "hybrid"
+          strict = true
+          allowOverlappingRoots = true
+          [[targets]]
+          name = "server"
+          role = "server"
+          roots = ["."]
+          rpcVersion = "v1"
+          transports = ["http"]
+          framing = "json"
+          [[targets]]
+          name = "client"
+          role = "client"
+          roots = ["."]
+          rpcVersion = "v1"
+          transports = ["http"]
+          framing = "json"
+          ''')
+              assert invoke(tmp, 'check').returncode == 0
+              result = invoke(tmp, 'resolve', '--path', '.')
+              assert result.returncode == 2 and result.stderr.strip().endswith('target-ambiguous'), result.stderr
+          finally:
+              tmp.unlink(missing_ok=True)
+          PY
+      - name: Require complete upstream peer-authority mapping
+        run: jq -e '.schema == "ores.typespec-json-schema-validator.mapping/v1" and (.declarations | length) == 9 and .ignore.typespec == [] and .ignore.generated == [] and .ignore.authored == []' .contract/api-docs/contracts/ores-rpc-config/tjsv.mapping.json
+      - name: Re-admit upstream TypeSpec and JSON Schema peers with pinned TJSV
+        uses: ORESoftware/typespec-json-schema-validator@d60d0d79d83e075077382623ec9e23a401ab601f
+        with:
+          typespec: .contract/api-docs/contracts/ores-rpc-config/typespec/main.tsp
+          schema: .contract/api-docs/contracts/ores-rpc-config/json-schema/ores-rpc-config.schema.json
+          mapping: .contract/api-docs/contracts/ores-rpc-config/tjsv.mapping.json
+          report: .typespec-json-schema-validator/ores-rpc-test/report.json
+          sarif: .typespec-json-schema-validator/ores-rpc-test/report.sarif
+          contract_ir: .typespec-json-schema-validator/ores-rpc-test/contract-ir.json
+          output_dir: .typespec-json-schema-validator/ores-rpc-test/generated
+          int64_strategy: number
+          quiet: "false"
+      - name: Require zero-drift peer-authority evidence
+        run: |
+          jq -e '.schema == "ores.typespec-json-schema-validator.report/v1" and .status == "passed" and .zeroUnexplainedFindings == true and .authorities.precedence == "none" and .authorities.typespec.authority == "independently-authored" and .authorities.jsonSchema.authority == "independently-authored" and (.differential.summary.divergences // 0) == 0 and (.differential.summary.refusals // 0) == 0' .typespec-json-schema-validator/ores-rpc-test/report.json
+          jq -e '.schema == "ores.typespec-json-schema-validator.contract-ir/v1" and .status == "passed" and .admissible == true and .editableAuthority == false' .typespec-json-schema-validator/ores-rpc-test/contract-ir.json
+      - name: Prove test-org authored sources were not rewritten
+        run: git diff --exit-code -- .ores-rpc.toml .github/workflows/ores-rpc-test-org.yml
+      - name: Retain test-org TJSV evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ores-rpc-test-org-${{ github.event.pull_request.head.sha || github.sha }}
+          path: .typespec-json-schema-validator/ores-rpc-test
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
