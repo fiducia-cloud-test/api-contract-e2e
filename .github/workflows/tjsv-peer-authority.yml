@@ -58,6 +58,13 @@ jobs:
           package-manager-cache: false
       - name: Install locked compiler and emitter closure
         run: npm ci --prefix tmp/tjsv --ignore-scripts --no-audit --no-fund
+      - name: Build only the pinned flags-2-env native dependency
+        working-directory: tmp/tjsv
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm rebuild @oresoftware/f2e --ignore-scripts=false --no-audit --no-fund
+          test -s node_modules/@oresoftware/f2e/clients/nodejs/build/Release/flags2env.node
       - name: Compile TypeSpec, compare generated Schema B with authored Schema A, and test drift
         run: node --test tests/tjsv_peer_authority.test.mjs
       - name: Reject committed generated witness and prove source immutability
