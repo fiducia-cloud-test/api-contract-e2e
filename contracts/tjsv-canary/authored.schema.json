@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "LeaseProbe": {
+      "type": "object",
+      "properties": {
+        "leaseId": { "type": "string", "minLength": 1 },
+        "holder": { "type": "string", "minLength": 1 },
+        "active": { "type": "boolean" }
+      },
+      "required": ["leaseId", "holder", "active"],
+      "unevaluatedProperties": false
+    }
+  }
+}
