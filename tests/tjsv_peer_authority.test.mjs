@@ -20,15 +20,16 @@ function execute(label, schemaPath, expected) {
   const dir = join(out, label);
   mkdirSync(dir, { recursive: true });
   const generatedDir = join(dir, 'generated');
-  const report = join(dir, 'report.json');
-  const ir = join(dir, 'contract-ir.json');
+  const reportPath = join(dir, 'report.json');
+  const irPath = join(dir, 'contract-ir.json');
+  const generated = join(generatedDir, 'typespec.generated.schema.json');
   const result = spawnSync(process.execPath, [
     tool, 'check',
     `--typespec=${tsp}`,
     `--schema=${schemaPath}`,
     `--instances=${instances}`,
-    `--report=${report}`,
-    `--contract-ir=${ir}`,
+    `--report=${reportPath}`,
+    `--contract-ir=${irPath}`,
     `--output-dir=${generatedDir}`,
     '--max-probes=64',
     '--seal-object-schemas=true',
@@ -37,10 +38,16 @@ function execute(label, schemaPath, expected) {
   assert.ifError(result.error);
   assert.equal(result.signal, null, label);
   assert.equal(result.status, expected, `${label}: ${result.stdout}\n${result.stderr}`);
-  return { report: readJson(report), ir: readJson(ir), generated: join(generatedDir, 'typespec.generated.schema.json') };
+  return {
+    result,
+    report: existsSync(reportPath) ? readJson(reportPath) : null,
+    ir: existsSync(irPath) ? readJson(irPath) : null,
+    generated,
+  };
 }
 
 function assertPeerReceipt(report) {
+  assert.ok(report, 'TJSV report is required for semantic parity verdicts');
   assert.equal(report.authorities.typespec.authority, 'independently-authored');
   assert.equal(report.authorities.typespec.generatedJsonSchemaRole, 'comparison-evidence-only');
   assert.equal(report.authorities.jsonSchema.authority, 'independently-authored');
@@ -92,6 +99,8 @@ test('drift in authored Schema A blocks even when TypeSpec and generated Schema 
 
 test('missing authored peer fails closed instead of promoting generated evidence', () => {
   const missing = execute('missing-peer', join(out, 'missing.schema.json'), 3);
-  assert.equal(missing.report.status, 'failed');
-  assert.equal(missing.ir.admissible, false);
+  assert.equal(existsSync(missing.generated), false, 'missing authored authority must not promote generated Schema B');
+  if (missing.report) assert.equal(missing.report.status, 'failed');
+  if (missing.ir) assert.equal(missing.ir.admissible, false);
+  assert.match(`${missing.result.stdout}\n${missing.result.stderr}`, /missing|ENOENT|not exist|read/i);
 });
