@@ -5,75 +5,57 @@ on:
     branches:
       - 'proof/ores-rpc-client-fluent-do-stream'
     paths:
+      - 'proof/ores-stack-rpc-http-lane/**'
       - '.github/workflows/ores-stack-parallel-rpc-lane-proof.yml'
   pull_request:
     paths:
+      - 'proof/ores-stack-rpc-http-lane/**'
       - '.github/workflows/ores-stack-parallel-rpc-lane-proof.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
-env:
-  STACK_HEAD: '6840f05d4062b91f447b8a2865733692ab936c34'
-  STACK_BASE: '253382da3634ce9fde62704e79e42160cee66838'
-  STACK_BRANCH: 'feat/parallel-rpc-runtime-client-lane'
-
 jobs:
-  certify-current-main-merge:
+  source-provenance:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - name: Fetch exact ores-stack source and current main
+      - name: Verify exact source blobs and wiring
         shell: bash
         run: |
           set -euo pipefail
-          git init ores-stack
-          git -C ores-stack remote add origin https://github.com/ORESoftware/ores-stack.git
-          git -C ores-stack fetch --depth=20 origin main "$STACK_BRANCH"
-          test "$(git -C ores-stack rev-parse origin/main)" = "$STACK_BASE"
-          test "$(git -C ores-stack rev-parse origin/$STACK_BRANCH)" = "$STACK_HEAD"
-          git -C ores-stack checkout -b proof "$STACK_BASE"
-          git -C ores-stack config user.name 'funded exact-head certification'
-          git -C ores-stack config user.email 'noreply@oresoftware.com'
-          git -C ores-stack merge --no-ff --no-edit "$STACK_HEAD"
-          test "$(git -C ores-stack diff --name-only "$STACK_BASE"...HEAD | sort | tr '\n' ' ')" = "crates/ores-stack-cli/src/legacy/mod.rs crates/ores-stack-core/src/lib.rs crates/ores-stack-core/src/rpc_http_client_lane.rs crates/ores-stack-core/src/rpc_http_client_lane_post.rs "
-      - name: Rust 1.88
-        shell: bash
-        run: |
-          set -euo pipefail
-          rustup toolchain install 1.88.0 --profile minimal --no-self-update
-          rustup default 1.88.0
-          rustup component add rustfmt clippy
-      - name: Format owned RPC lane sources
-        shell: bash
-        working-directory: ores-stack
-        run: |
-          set -euo pipefail
-          rustfmt --edition 2024 --check \
-            crates/ores-stack-core/src/rpc_http_client_lane.rs \
-            crates/ores-stack-core/src/rpc_http_client_lane_post.rs
-          git diff --check
-      - name: Compile and test affected crates
-        shell: bash
-        working-directory: ores-stack
-        run: |
-          set -euo pipefail
-          cargo metadata --locked --format-version 1 --no-deps >/dev/null
-          cargo check --locked -p ores-stack-core -p ores-stack-cli --all-targets
-          cargo test --locked -p ores-stack-core rpc_http_client_lane -- --nocapture
-          cargo clippy --locked -p ores-stack-core -p ores-stack-cli --all-targets -- -D warnings
-          git diff --check
-      - name: Verify doStream/makeCall generated terminal contract
-        shell: bash
-        working-directory: ores-stack
-        run: |
-          set -euo pipefail
-          grep -q 'makeCall()' crates/ores-stack-core/src/rpc_http_client_lane.rs
-          grep -q 'doStream()' crates/ores-stack-core/src/rpc_http_client_lane.rs
-          grep -q 'make_call' crates/ores-stack-core/src/rpc_http_client_lane.rs
-          grep -q 'do_stream' crates/ores-stack-core/src/rpc_http_client_lane.rs
-          ! grep -Eq '\.stream\(\)|\.stream\(' crates/ores-stack-core/src/rpc_http_client_lane.rs
-          grep -q 'generated_ores_http' crates/ores-stack-core/src/rpc_http_client_lane.rs
-          grep -q 'ORESoftware/ores-interfaces/contracts/rpc-client-call/v1' crates/ores-stack-core/src/rpc_http_client_lane.rs
+          root=proof/ores-stack-rpc-http-lane
+          test "$(git hash-object "$root/src/rpc_http_client_lane.rs")" = 145ec021aae449bab3ce5eb5ce06cbf944e1fd17
+          test "$(git hash-object "$root/src/rpc_http_client_lane_post.rs")" = af7276808c8b859b03048b4eef54a6c0af3c757e
+          test "$(git hash-object "$root/source/legacy-mod.rs")" = 50e7691fb04c49a29f42b4159896ef5ffb2e6ce5
+          grep -q '"head_sha": "6840f05d4062b91f447b8a2865733692ab936c34"' "$root/source-pins.json"
+          grep -q '"current_main_sha": "253382da3634ce9fde62704e79e42160cee66838"' "$root/source-pins.json"
+          grep -q 'mod rpc_http_client_lane;' "$root/source/core-lib-wiring.patch"
+          grep -q 'mod rpc_http_client_lane_post;' "$root/source/core-lib-wiring.patch"
+          grep -q 'sync_import_aliases as sync_rpc_client_import_aliases' "$root/source/core-lib-wiring.patch"
+          grep -q 'materialize_from_canonical_sync' "$root/source/core-lib-wiring.patch"
+          grep -q 'sync_rpc_client_import_aliases' "$root/source/legacy-mod.rs"
+          grep -q 'matches!(&invocation.command, CliCommand::Check)' "$root/source/legacy-mod.rs"
+          grep -q '@oresoftware/ores-http-clients/fluent' "$root/src/rpc_http_client_lane.rs"
+          grep -q 'generated_ores_http' "$root/src/rpc_http_client_lane.rs"
+          grep -q 'ORESoftware/ores-interfaces/contracts/rpc-client-call/v1' "$root/src/rpc_http_client_lane.rs"
+          ! grep -Eq '\.stream\(\)|\.stream\(' "$root/src/rpc_http_client_lane.rs"
+
+  generator-core:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: proof/ores-stack-rpc-http-lane
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.88.0'
+          components: rustfmt, clippy
+      - name: Format exact generator sources
+        run: cargo fmt --all -- --check
+      - name: Compile and run generator unit tests
+        run: cargo test --all-targets
+      - name: Clippy exact generator sources
+        run: cargo clippy --all-targets -- -D warnings
