@@ -2,23 +2,120 @@ import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
 
-pub type RpcPayloadCodecName { Json Messagepack Protobuf }
-pub type RpcGeneratedStreamMode { Unary ServerStream }
-pub type RpcOperationDescriptor { RpcOperationDescriptor(operation_key: String, endpoint: String, stream_mode: RpcGeneratedStreamMode, allowed_codecs: List(RpcPayloadCodecName), default_codec: RpcPayloadCodecName, contract_sha256: String) }
-pub type RpcCallOptions { RpcCallOptions(headers: List(#(String, String)), timeout_ms: Option(Int), codec: Option(RpcPayloadCodecName)) }
-pub type RpcUnaryCallBuilder(input, output, error) { RpcUnaryCallBuilder(operation: RpcOperationDescriptor, input: input, options: RpcCallOptions, execute: fn(RpcOperationDescriptor, input, RpcCallOptions) -> Result(output, error)) }
-pub type RpcServerStreamCallBuilder(input, stream, error) { RpcServerStreamCallBuilder(operation: RpcOperationDescriptor, input: input, options: RpcCallOptions, open: fn(RpcOperationDescriptor, input, RpcCallOptions) -> Result(stream, error)) }
+pub type RpcPayloadCodecName {
+  Json
+  Messagepack
+  Protobuf
+}
 
-pub fn unary(operation, input, execute) -> RpcUnaryCallBuilder(input, output, error) { RpcUnaryCallBuilder(operation, input, RpcCallOptions([], None, None), execute) }
-pub fn server_stream(operation, input, open) -> RpcServerStreamCallBuilder(input, stream, error) { RpcServerStreamCallBuilder(operation, input, RpcCallOptions([], None, None), open) }
-fn put_header(headers: List(#(String, String)), name: String, value: String) -> List(#(String, String)) { let name = name |> string.trim |> string.lowercase [#(name, value), ..list.filter(headers, fn(entry) { entry.0 != name })] }
-pub fn unary_header(builder: RpcUnaryCallBuilder(input, output, error), name: String, value: String) -> RpcUnaryCallBuilder(input, output, error) { let RpcUnaryCallBuilder(operation, input, options, execute) = builder let RpcCallOptions(headers, timeout_ms, codec) = options RpcUnaryCallBuilder(operation, input, RpcCallOptions(put_header(headers, name, value), timeout_ms, codec), execute) }
-pub fn unary_headers(builder: RpcUnaryCallBuilder(input, output, error), values: List(#(String, String))) -> RpcUnaryCallBuilder(input, output, error) { list.fold(values, builder, fn(current, entry) { unary_header(current, entry.0, entry.1) }) }
-pub fn unary_timeout(builder: RpcUnaryCallBuilder(input, output, error), milliseconds: Int) -> RpcUnaryCallBuilder(input, output, error) { let RpcUnaryCallBuilder(operation, input, options, execute) = builder let RpcCallOptions(headers, _, codec) = options RpcUnaryCallBuilder(operation, input, RpcCallOptions(headers, Some(milliseconds), codec), execute) }
-pub fn unary_codec(builder: RpcUnaryCallBuilder(input, output, error), codec: RpcPayloadCodecName) -> RpcUnaryCallBuilder(input, output, error) { let RpcUnaryCallBuilder(operation, input, options, execute) = builder let RpcCallOptions(headers, timeout_ms, _) = options RpcUnaryCallBuilder(operation, input, RpcCallOptions(headers, timeout_ms, Some(codec)), execute) }
-pub fn make_call(builder: RpcUnaryCallBuilder(input, output, error)) -> Result(output, error) { let RpcUnaryCallBuilder(operation, input, options, execute) = builder execute(operation, input, options) }
-pub fn stream_header(builder: RpcServerStreamCallBuilder(input, stream, error), name: String, value: String) -> RpcServerStreamCallBuilder(input, stream, error) { let RpcServerStreamCallBuilder(operation, input, options, open) = builder let RpcCallOptions(headers, timeout_ms, codec) = options RpcServerStreamCallBuilder(operation, input, RpcCallOptions(put_header(headers, name, value), timeout_ms, codec), open) }
-pub fn stream_headers(builder: RpcServerStreamCallBuilder(input, stream, error), values: List(#(String, String))) -> RpcServerStreamCallBuilder(input, stream, error) { list.fold(values, builder, fn(current, entry) { stream_header(current, entry.0, entry.1) }) }
-pub fn stream_timeout(builder: RpcServerStreamCallBuilder(input, stream, error), milliseconds: Int) -> RpcServerStreamCallBuilder(input, stream, error) { let RpcServerStreamCallBuilder(operation, input, options, open) = builder let RpcCallOptions(headers, _, codec) = options RpcServerStreamCallBuilder(operation, input, RpcCallOptions(headers, Some(milliseconds), codec), open) }
-pub fn stream_codec(builder: RpcServerStreamCallBuilder(input, stream, error), codec: RpcPayloadCodecName) -> RpcServerStreamCallBuilder(input, stream, error) { let RpcServerStreamCallBuilder(operation, input, options, open) = builder let RpcCallOptions(headers, timeout_ms, _) = options RpcServerStreamCallBuilder(operation, input, RpcCallOptions(headers, timeout_ms, Some(codec)), open) }
-pub fn do_stream(builder: RpcServerStreamCallBuilder(input, stream, error)) -> Result(stream, error) { let RpcServerStreamCallBuilder(operation, input, options, open) = builder open(operation, input, options) }
+pub type RpcGeneratedStreamMode {
+  Unary
+  ServerStream
+}
+
+/// Fleet-generic descriptor mirrored from ores-interfaces/rpc-client-call/v1.
+pub type RpcOperationDescriptor {
+  RpcOperationDescriptor(
+    operation_key: String,
+    endpoint: String,
+    stream_mode: RpcGeneratedStreamMode,
+    allowed_codecs: List(RpcPayloadCodecName),
+    default_codec: RpcPayloadCodecName,
+    contract_sha256: String,
+  )
+}
+
+pub type RpcCallOptions {
+  RpcCallOptions(
+    headers: List(#(String, String)),
+    timeout_ms: Option(Int),
+    codec: Option(RpcPayloadCodecName),
+  )
+}
+
+pub type RpcUnaryCallBuilder(input, output, error) {
+  RpcUnaryCallBuilder(
+    operation: RpcOperationDescriptor,
+    input: input,
+    options: RpcCallOptions,
+    execute: fn(RpcOperationDescriptor, input, RpcCallOptions) -> Result(output, error),
+  )
+}
+
+pub type RpcServerStreamCallBuilder(input, stream, error) {
+  RpcServerStreamCallBuilder(
+    operation: RpcOperationDescriptor,
+    input: input,
+    options: RpcCallOptions,
+    open: fn(RpcOperationDescriptor, input, RpcCallOptions) -> Result(stream, error),
+  )
+}
+
+pub fn unary(operation, input, execute) -> RpcUnaryCallBuilder(input, output, error) {
+  RpcUnaryCallBuilder(operation, input, RpcCallOptions([], None, None), execute)
+}
+
+pub fn server_stream(operation, input, open) -> RpcServerStreamCallBuilder(input, stream, error) {
+  RpcServerStreamCallBuilder(operation, input, RpcCallOptions([], None, None), open)
+}
+
+fn put_header(headers: List(#(String, String)), name: String, value: String) -> List(#(String, String)) {
+  let name = name |> string.trim |> string.lowercase
+  [#(name, value), ..list.filter(headers, fn(entry) { entry.0 != name })]
+}
+
+pub fn unary_header(builder: RpcUnaryCallBuilder(input, output, error), name: String, value: String) -> RpcUnaryCallBuilder(input, output, error) {
+  let RpcUnaryCallBuilder(operation, input, options, execute) = builder
+  let RpcCallOptions(headers, timeout_ms, codec) = options
+  RpcUnaryCallBuilder(operation, input, RpcCallOptions(put_header(headers, name, value), timeout_ms, codec), execute)
+}
+
+pub fn unary_headers(builder: RpcUnaryCallBuilder(input, output, error), values: List(#(String, String))) -> RpcUnaryCallBuilder(input, output, error) {
+  list.fold(values, builder, fn(current, entry) { unary_header(current, entry.0, entry.1) })
+}
+
+pub fn unary_timeout(builder: RpcUnaryCallBuilder(input, output, error), milliseconds: Int) -> RpcUnaryCallBuilder(input, output, error) {
+  let RpcUnaryCallBuilder(operation, input, options, execute) = builder
+  let RpcCallOptions(headers, _, codec) = options
+  RpcUnaryCallBuilder(operation, input, RpcCallOptions(headers, Some(milliseconds), codec), execute)
+}
+
+pub fn unary_codec(builder: RpcUnaryCallBuilder(input, output, error), codec: RpcPayloadCodecName) -> RpcUnaryCallBuilder(input, output, error) {
+  let RpcUnaryCallBuilder(operation, input, options, execute) = builder
+  let RpcCallOptions(headers, timeout_ms, _) = options
+  RpcUnaryCallBuilder(operation, input, RpcCallOptions(headers, timeout_ms, Some(codec)), execute)
+}
+
+/// Sole unary terminal. Everything before this function only builds call state.
+pub fn make_call(builder: RpcUnaryCallBuilder(input, output, error)) -> Result(output, error) {
+  let RpcUnaryCallBuilder(operation, input, options, execute) = builder
+  execute(operation, input, options)
+}
+
+pub fn stream_header(builder: RpcServerStreamCallBuilder(input, stream, error), name: String, value: String) -> RpcServerStreamCallBuilder(input, stream, error) {
+  let RpcServerStreamCallBuilder(operation, input, options, open) = builder
+  let RpcCallOptions(headers, timeout_ms, codec) = options
+  RpcServerStreamCallBuilder(operation, input, RpcCallOptions(put_header(headers, name, value), timeout_ms, codec), open)
+}
+
+pub fn stream_headers(builder: RpcServerStreamCallBuilder(input, stream, error), values: List(#(String, String))) -> RpcServerStreamCallBuilder(input, stream, error) {
+  list.fold(values, builder, fn(current, entry) { stream_header(current, entry.0, entry.1) })
+}
+
+pub fn stream_timeout(builder: RpcServerStreamCallBuilder(input, stream, error), milliseconds: Int) -> RpcServerStreamCallBuilder(input, stream, error) {
+  let RpcServerStreamCallBuilder(operation, input, options, open) = builder
+  let RpcCallOptions(headers, _, codec) = options
+  RpcServerStreamCallBuilder(operation, input, RpcCallOptions(headers, Some(milliseconds), codec), open)
+}
+
+pub fn stream_codec(builder: RpcServerStreamCallBuilder(input, stream, error), codec: RpcPayloadCodecName) -> RpcServerStreamCallBuilder(input, stream, error) {
+  let RpcServerStreamCallBuilder(operation, input, options, open) = builder
+  let RpcCallOptions(headers, timeout_ms, _) = options
+  RpcServerStreamCallBuilder(operation, input, RpcCallOptions(headers, timeout_ms, Some(codec)), open)
+}
+
+/// Sole server-stream OPEN terminal. Everything before this function only builds call state.
+pub fn do_stream(builder: RpcServerStreamCallBuilder(input, stream, error)) -> Result(stream, error) {
+  let RpcServerStreamCallBuilder(operation, input, options, open) = builder
+  open(operation, input, options)
+}
