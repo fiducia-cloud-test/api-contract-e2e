@@ -1,9 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    future::Future,
-    pin::Pin,
-    sync::Arc,
-};
+use std::{collections::BTreeMap, future::Future, pin::Pin, sync::Arc};
 
 use futures_core::Stream;
 
@@ -41,15 +36,10 @@ pub struct RpcCallOptions {
 pub type BoxRpcFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send + 'static>>;
 pub type BoxRpcStream<T, E> = Pin<Box<dyn Stream<Item = Result<T, E>> + Send + 'static>>;
 
-pub type RpcUnaryExecutor<I, O, E> = Arc<
-    dyn Fn(RpcOperationDescriptor, I, RpcCallOptions) -> BoxRpcFuture<O, E> + Send + Sync,
->;
+pub type RpcUnaryExecutor<I, O, E> =
+    Arc<dyn Fn(RpcOperationDescriptor, I, RpcCallOptions) -> BoxRpcFuture<O, E> + Send + Sync>;
 pub type RpcStreamExecutor<I, O, E> = Arc<
-    dyn Fn(
-            RpcOperationDescriptor,
-            I,
-            RpcCallOptions,
-        ) -> BoxRpcFuture<BoxRpcStream<O, E>, E>
+    dyn Fn(RpcOperationDescriptor, I, RpcCallOptions) -> BoxRpcFuture<BoxRpcStream<O, E>, E>
         + Send
         + Sync,
 >;
@@ -62,8 +52,20 @@ fn normalize_header_name(name: impl Into<String>) -> String {
             byte.is_ascii_alphanumeric()
                 || matches!(
                     byte,
-                    b'!' | b'#' | b'$' | b'%' | b'&' | b'\'' | b'*' | b'+' | b'-' | b'.'
-                        | b'^' | b'_' | b'`' | b'|' | b'~'
+                    b'!' | b'#'
+                        | b'$'
+                        | b'%'
+                        | b'&'
+                        | b'\''
+                        | b'*'
+                        | b'+'
+                        | b'-'
+                        | b'.'
+                        | b'^'
+                        | b'_'
+                        | b'`'
+                        | b'|'
+                        | b'~'
                 )
         }),
         "invalid RPC header name: {normalized:?}"

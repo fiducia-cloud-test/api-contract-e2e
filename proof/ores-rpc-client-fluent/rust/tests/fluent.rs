@@ -33,8 +33,8 @@ async fn unary_chain_is_inert_until_make_call() {
     let calls_for_executor = Arc::clone(&calls);
     let seen_for_executor = Arc::clone(&seen);
 
-    let execute: RpcUnaryExecutor<String, String, String> = Arc::new(
-        move |_operation, input, options| {
+    let execute: RpcUnaryExecutor<String, String, String> =
+        Arc::new(move |_operation, input, options| {
             let calls = Arc::clone(&calls_for_executor);
             let seen = Arc::clone(&seen_for_executor);
             Box::pin(async move {
@@ -42,8 +42,7 @@ async fn unary_chain_is_inert_until_make_call() {
                 *seen.lock().expect("seen lock") = Some(options);
                 Ok(format!("version:{input}"))
             })
-        },
-    );
+        });
 
     let call = OresRpcClientBase
         .unary(OPERATION, "v1".to_owned(), execute)
@@ -75,8 +74,8 @@ async fn server_stream_chain_is_inert_until_do_stream() {
     let opens_for_executor = Arc::clone(&opens);
     let seen_for_executor = Arc::clone(&seen);
 
-    let open: RpcStreamExecutor<String, usize, String> = Arc::new(
-        move |_operation, _input, options| {
+    let open: RpcStreamExecutor<String, usize, String> =
+        Arc::new(move |_operation, _input, options| {
             let opens = Arc::clone(&opens_for_executor);
             let seen = Arc::clone(&seen_for_executor);
             Box::pin(async move {
@@ -86,8 +85,7 @@ async fn server_stream_chain_is_inert_until_do_stream() {
                     Box::pin(futures_util::stream::iter([Ok(1usize), Ok(2usize)]));
                 Ok(values)
             })
-        },
-    );
+        });
 
     let call = OresRpcClientBase
         .server_stream(STREAM_OPERATION, "events".to_owned(), open)

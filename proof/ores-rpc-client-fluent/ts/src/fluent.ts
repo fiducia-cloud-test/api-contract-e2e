@@ -1,6 +1,7 @@
 export type RpcPayloadCodecName = "json" | "messagepack" | "protobuf";
 export type RpcGeneratedStreamMode = "unary" | "server_stream";
 
+/** Fleet-generic operation descriptor mirrored from ores-interfaces/rpc-client-call/v1. */
 export interface RpcOperationDescriptor {
   readonly operationKey: string;
   readonly endpoint: string;
@@ -10,6 +11,7 @@ export interface RpcOperationDescriptor {
   readonly contractSha256: string;
 }
 
+/** Runtime-only options accumulated by an immutable fluent call chain. */
 export interface RpcCallOptions {
   readonly headers: Readonly<Record<string, string>>;
   readonly timeoutMs?: number;
@@ -104,6 +106,7 @@ export class RpcUnaryCallBuilder<TInput, TOutput> {
     return new RpcUnaryCallBuilder(this.operation, this.input, this.execute, Object.freeze({...this.options, signal}));
   }
 
+  /** Sole unary network terminal. No preceding chain operation performs I/O. */
   makeCall(): Promise<TOutput> {
     return Promise.resolve(this.execute(this.operation, this.input, this.options));
   }
@@ -142,17 +145,31 @@ export class RpcServerStreamCallBuilder<TInput, TOutput> {
     return new RpcServerStreamCallBuilder(this.operation, this.input, this.open, Object.freeze({...this.options, signal}));
   }
 
+  /** Sole server-stream OPEN terminal. No preceding chain operation performs I/O. */
   doStream(): Promise<RpcStreamHandle<TOutput>> {
     return Promise.resolve(this.open(this.operation, this.input, this.options));
   }
 }
 
+/**
+ * Parent class for the alternate ores-stack generated TypeScript lane.
+ * Product-specific generated clients subclass this; transport execution stays
+ * injectable so this package never owns product schemas or operation names.
+ */
 export abstract class OresRpcClientBase {
-  protected unary<TInput, TOutput>(operation: RpcOperationDescriptor, input: TInput, execute: RpcUnaryExecutor<TInput, TOutput>): RpcUnaryCallBuilder<TInput, TOutput> {
+  protected unary<TInput, TOutput>(
+    operation: RpcOperationDescriptor,
+    input: TInput,
+    execute: RpcUnaryExecutor<TInput, TOutput>,
+  ): RpcUnaryCallBuilder<TInput, TOutput> {
     return new RpcUnaryCallBuilder(operation, input, execute);
   }
 
-  protected serverStream<TInput, TOutput>(operation: RpcOperationDescriptor, input: TInput, open: RpcStreamExecutor<TInput, TOutput>): RpcServerStreamCallBuilder<TInput, TOutput> {
+  protected serverStream<TInput, TOutput>(
+    operation: RpcOperationDescriptor,
+    input: TInput,
+    open: RpcStreamExecutor<TInput, TOutput>,
+  ): RpcServerStreamCallBuilder<TInput, TOutput> {
     return new RpcServerStreamCallBuilder(operation, input, open);
   }
 }
