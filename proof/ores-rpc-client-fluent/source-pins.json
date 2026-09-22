@@ -1,0 +1,26 @@
+{
+  "schema": "ores.cross-org-proof/rpc-client-fluent/v1",
+  "ores_http_clients": {
+    "repository": "ORESoftware/ores-http-clients",
+    "pull_request": 13,
+    "head_sha": "797e9c7a1715188372ec2a86161985940fb50fe4",
+    "files": {
+      "ts_fluent": "1e3262bd8dfa33829c6236823ba900bcdf4a8470",
+      "ts_test": "252f1d4e417780d7b2b5306df718398b97887163",
+      "dart_fluent": "35d07e0792ca658eed69d4df9edff8be5c493d62",
+      "dart_test": "f4ee1d246e997df51a7913be3e486a8be28d643a",
+      "rust_fluent": "cd717600930c32c3ffad8822274539a44dfde709",
+      "rust_test": "68a1385a4a4105a9ceaec5233fcf01cf12c4ee26",
+      "gleam_fluent": "bcd328466a7d36b59cec01a342c8f8c1a73809ba",
+      "binding": "1d6e3742b5430a598ab63042fbcc42373e08f9b9"
+    }
+  },
+  "ores_interfaces": {
+    "repository": "ORESoftware/ores-interfaces",
+    "pull_request": 48,
+    "merge_sha": "a071dbd727418b0483c3d514c862c0bb4f8633c0",
+    "main_tsp_blob": "2d29101f45a23ea05660fb0a3fd8097baf9896db",
+    "authored_schema_blob": "06d7cef33753449d9e3fe85a7919eedd09dda989"
+  },
+  "semantic_terminals": ["make_call", "do_stream"]
+}

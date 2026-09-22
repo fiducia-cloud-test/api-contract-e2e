@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://oresoftware.com/schemas/rpc-client-call/v1",
+  "title": "ORES RPC Client Call v1",
+  "$comment": "Independent human-authored peer authority for contracts/rpc-client-call/v1/main.tsp.",
+  "$defs": {
+    "HeaderMap": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": { "type": "string" },
+      "unevaluatedProperties": false
+    },
+    "RpcPayloadCodec": {
+      "type": "string",
+      "enum": ["json", "messagepack", "protobuf"]
+    },
+    "RpcStreamMode": {
+      "type": "string",
+      "enum": ["unary", "server_stream"]
+    },
+    "RpcCallTerminal": {
+      "type": "string",
+      "enum": ["make_call", "do_stream"]
+    },
+    "RpcOperationDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation_key", "endpoint", "stream_mode", "allowed_codecs", "default_codec", "contract_sha256"],
+      "properties": {
+        "operation_key": { "type": "string", "minLength": 1 },
+        "endpoint": { "type": "string", "pattern": "^/" },
+        "stream_mode": { "$ref": "#/$defs/RpcStreamMode" },
+        "allowed_codecs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/RpcPayloadCodec" }
+        },
+        "default_codec": { "$ref": "#/$defs/RpcPayloadCodec" },
+        "contract_sha256": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" }
+      }
+    },
+    "RpcCallOptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["headers"],
+      "properties": {
+        "headers": { "$ref": "#/$defs/HeaderMap" },
+        "timeout_ms": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "codec": { "$ref": "#/$defs/RpcPayloadCodec" }
+      }
+    },
+    "RpcCallIntent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation", "options", "terminal"],
+      "properties": {
+        "operation": { "$ref": "#/$defs/RpcOperationDescriptor" },
+        "options": { "$ref": "#/$defs/RpcCallOptions" },
+        "terminal": { "$ref": "#/$defs/RpcCallTerminal" }
+      }
+    }
+  },
+  "$ref": "#/$defs/RpcCallIntent"
+}
