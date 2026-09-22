@@ -3,14 +3,14 @@
   "ores_http_clients": {
     "repository": "ORESoftware/ores-http-clients",
     "pull_request": 13,
-    "head_sha": "797e9c7a1715188372ec2a86161985940fb50fe4",
+    "head_sha": "fe4b3332daee21f1bb7c75a434d7a12a5eb2f258",
     "files": {
       "ts_fluent": "1e3262bd8dfa33829c6236823ba900bcdf4a8470",
       "ts_test": "252f1d4e417780d7b2b5306df718398b97887163",
       "dart_fluent": "35d07e0792ca658eed69d4df9edff8be5c493d62",
       "dart_test": "f4ee1d246e997df51a7913be3e486a8be28d643a",
-      "rust_fluent": "cd717600930c32c3ffad8822274539a44dfde709",
-      "rust_test": "68a1385a4a4105a9ceaec5233fcf01cf12c4ee26",
+      "rust_fluent": "eacbabae1d6b04675c3a18238ef2793332fcc698",
+      "rust_test": "ffd0869fd4747117cec81ba6aee878f70eedce33",
       "gleam_fluent": "bcd328466a7d36b59cec01a342c8f8c1a73809ba",
       "binding": "1d6e3742b5430a598ab63042fbcc42373e08f9b9"
     }
