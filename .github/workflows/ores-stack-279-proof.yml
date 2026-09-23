@@ -4,12 +4,16 @@ on:
   pull_request:
     paths:
       - '.github/workflows/ores-stack-279-proof.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ores-stack-279-proof.yml'
 
 permissions:
   contents: read
 
 concurrency:
-  group: ores-stack-279-${{ github.event.pull_request.head.sha }}
+  group: ores-stack-279-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: true
 
 jobs:
