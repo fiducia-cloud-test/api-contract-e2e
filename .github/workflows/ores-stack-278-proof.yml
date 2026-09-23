@@ -1,0 +1,65 @@
+name: ores-stack 278 exact-head proof
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/ores-stack-278-proof.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ores-stack-278-proof.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ores-stack-278-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  rust-cli:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out immutable ores-stack PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ORESoftware/ores-stack
+          ref: a673b93cb728c5d9c23d9ea59c0baffc9705f36e
+          path: ores-stack
+          persist-credentials: false
+          show-progress: false
+      - name: Assert immutable source identity
+        working-directory: ores-stack
+        run: test "$(git rev-parse HEAD)" = "a673b93cb728c5d9c23d9ea59c0baffc9705f36e"
+      - name: Rustfmt workspace
+        working-directory: ores-stack
+        run: cargo fmt --all -- --check
+      - name: Check CLI with locked graph
+        working-directory: ores-stack
+        run: cargo check -p ores-stack-cli --all-targets --locked
+      - name: Test CLI with locked graph
+        working-directory: ores-stack
+        run: cargo test -p ores-stack-cli --locked
+
+  governance-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out immutable ores-stack PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ORESoftware/ores-stack
+          ref: a673b93cb728c5d9c23d9ea59c0baffc9705f36e
+          path: ores-stack
+          persist-credentials: false
+          show-progress: false
+      - name: Assert immutable source identity
+        working-directory: ores-stack
+        run: test "$(git rev-parse HEAD)" = "a673b93cb728c5d9c23d9ea59c0baffc9705f36e"
+      - name: Install contract tooling
+        working-directory: ores-stack
+        run: npm ci
+      - name: Check independent TypeSpec and JSON Schema authorities
+        working-directory: ores-stack
+        run: npm run check:contracts
