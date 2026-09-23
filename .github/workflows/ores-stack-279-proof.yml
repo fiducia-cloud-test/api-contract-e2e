@@ -1,0 +1,66 @@
+name: ores-stack 279 exact-head proof
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/ores-stack-279-proof.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ores-stack-279-${{ github.event.pull_request.head.sha }}
+  cancel-in-progress: true
+
+jobs:
+  workspace:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out immutable ores-stack PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ORESoftware/ores-stack
+          ref: 64b9ee3c5be16c55f67fec896df0990ccdf752a0
+          path: ores-stack
+          persist-credentials: false
+          show-progress: false
+      - name: Assert immutable source identity
+        working-directory: ores-stack
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "64b9ee3c5be16c55f67fec896df0990ccdf752a0"
+          git status --short
+      - name: Rustfmt workspace
+        working-directory: ores-stack
+        run: cargo fmt --all -- --check
+      - name: Check workspace with locked dependency graph
+        working-directory: ores-stack
+        run: cargo check --workspace --all-targets --locked
+      - name: Test workspace with locked dependency graph
+        working-directory: ores-stack
+        run: cargo test --workspace --locked
+
+  lambda-runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out immutable ores-stack PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ORESoftware/ores-stack
+          ref: 64b9ee3c5be16c55f67fec896df0990ccdf752a0
+          path: ores-stack
+          persist-credentials: false
+          show-progress: false
+      - name: Assert immutable source identity
+        working-directory: ores-stack
+        run: test "$(git rev-parse HEAD)" = "64b9ee3c5be16c55f67fec896df0990ccdf752a0"
+      - name: Check AWS and GCP runtime package
+        working-directory: ores-stack
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path crates/ores-lambda-runtime/Cargo.toml -- --check
+          cargo check --manifest-path crates/ores-lambda-runtime/Cargo.toml --all-features
+          cargo test --manifest-path crates/ores-lambda-runtime/Cargo.toml --all-features
