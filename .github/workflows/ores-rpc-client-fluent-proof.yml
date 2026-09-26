@@ -1,0 +1,100 @@
+name: ores RPC client fluent proof
+
+on:
+  push:
+    branches:
+      - 'proof/ores-rpc-client-fluent-do-stream'
+  pull_request:
+    paths:
+      - 'proof/ores-rpc-client-fluent/**'
+      - '.github/workflows/ores-rpc-client-fluent-proof.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  terminal-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify exact source blob identities
+        run: |
+          set -eu
+          check_blob() {
+            expected="$1"
+            path="$2"
+            actual="$(git hash-object "$path")"
+            test "$actual" = "$expected" || {
+              echo "blob mismatch: $path expected=$expected actual=$actual" >&2
+              exit 1
+            }
+          }
+          grep -q '"head_sha": "fe4b3332daee21f1bb7c75a434d7a12a5eb2f258"' proof/ores-rpc-client-fluent/source-pins.json
+          check_blob 1e3262bd8dfa33829c6236823ba900bcdf4a8470 proof/ores-rpc-client-fluent/ts/src/fluent.ts
+          check_blob 252f1d4e417780d7b2b5306df718398b97887163 proof/ores-rpc-client-fluent/ts/test/fluent.test.ts
+          check_blob 35d07e0792ca658eed69d4df9edff8be5c493d62 proof/ores-rpc-client-fluent/dart/lib/src/fluent.dart
+          check_blob f4ee1d246e997df51a7913be3e486a8be28d643a proof/ores-rpc-client-fluent/dart/test/fluent_test.dart
+          check_blob eacbabae1d6b04675c3a18238ef2793332fcc698 proof/ores-rpc-client-fluent/rust/src/fluent.rs
+          check_blob ffd0869fd4747117cec81ba6aee878f70eedce33 proof/ores-rpc-client-fluent/rust/tests/fluent.rs
+          check_blob bcd328466a7d36b59cec01a342c8f8c1a73809ba proof/ores-rpc-client-fluent/gleam/src/ores_http_clients/fluent.gleam
+          check_blob 1d6e3742b5430a598ab63042fbcc42373e08f9b9 proof/ores-rpc-client-fluent/runtime-binding.json
+          check_blob 2d29101f45a23ea05660fb0a3fd8097baf9896db proof/ores-rpc-client-fluent/contract/main.tsp
+          check_blob 06d7cef33753449d9e3fe85a7919eedd09dda989 proof/ores-rpc-client-fluent/contract/authored.schema.json
+      - name: Verify shared terminal semantics
+        run: bash proof/ores-rpc-client-fluent/check-terminals.sh
+
+  typescript:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: proof/ores-rpc-client-fluent/ts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --ignore-scripts --no-audit --no-fund
+      - run: npm test
+
+  dart:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: proof/ores-rpc-client-fluent/dart
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - run: dart pub get
+      - run: dart analyze --fatal-infos
+      - run: dart test
+
+  rust:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: proof/ores-rpc-client-fluent/rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - run: cargo fmt --all -- --check
+      - run: cargo test --all-targets
+      - run: cargo clippy --all-targets -- -D warnings
+
+  gleam:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: proof/ores-rpc-client-fluent/gleam
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: '27'
+          gleam-version: '1.14.0'
+      - run: gleam deps download
+      - run: gleam check
