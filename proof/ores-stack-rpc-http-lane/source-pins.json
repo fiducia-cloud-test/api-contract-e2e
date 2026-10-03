@@ -1,0 +1,19 @@
+{
+  "schema": "ores.cross-org-proof/ores-stack-rpc-http-lane/v1",
+  "repository": "ORESoftware/ores-stack",
+  "pull_request": 275,
+  "head_sha": "6840f05d4062b91f447b8a2865733692ab936c34",
+  "current_main_sha": "253382da3634ce9fde62704e79e42160cee66838",
+  "changed_files": {
+    "crates/ores-stack-core/src/rpc_http_client_lane.rs": "145ec021aae449bab3ce5eb5ce06cbf944e1fd17",
+    "crates/ores-stack-core/src/rpc_http_client_lane_post.rs": "af7276808c8b859b03048b4eef54a6c0af3c757e",
+    "crates/ores-stack-core/src/lib.rs": "27399c2ea97704a01a250602f3ac688dd47f8093",
+    "crates/ores-stack-cli/src/legacy/mod.rs": "50e7691fb04c49a29f42b4159896ef5ffb2e6ce5"
+  },
+  "api_docs_rev": "cdc3715ae0a7cb635fa01d96aecec60b7f5d6b2c",
+  "notes": [
+    "The two new generator modules are copied byte-for-byte and verified by Git blob SHA.",
+    "The CLI legacy wiring file is also copied byte-for-byte and verified by Git blob SHA.",
+    "The large core lib.rs wiring is pinned by source blob SHA and its exact PR hunk is asserted separately."
+  ]
+}

@@ -1,0 +1,12 @@
+[package]
+name = "ores-stack-rpc-http-lane-proof"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.88"
+publish = false
+
+[dependencies]
+anyhow = "1"
+ores-api-docs = { git = "https://github.com/ORESoftware/api-docs.git", rev = "cdc3715ae0a7cb635fa01d96aecec60b7f5d6b2c", package = "ores-api-docs", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

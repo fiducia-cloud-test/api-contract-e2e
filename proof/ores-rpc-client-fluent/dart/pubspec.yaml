@@ -1,0 +1,7 @@
+name: ores_http_clients
+description: Cross-org proof harness for ores-http-clients fluent RPC builders.
+version: 0.0.0
+environment:
+  sdk: '>=3.7.0 <4.0.0'
+dev_dependencies:
+  test: ^1.25.0

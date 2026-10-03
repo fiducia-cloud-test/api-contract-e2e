@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schema": "ores.http.clients.contract-binding/v1",
+  "authority": "ORESoftware/ores-interfaces/contracts/rpc-client-call/v1",
+  "runtime": "ores-http-clients fluent generated RPC lane",
+  "languages": ["typescript", "dart", "rust", "gleam"],
+  "semantics": {
+    "operation_descriptor": "RpcOperationDescriptor",
+    "call_options": "RpcCallOptions",
+    "unary_terminal": "make_call",
+    "stream_terminal": "do_stream",
+    "headers": "canonical lowercase names",
+    "runtime_only_values": ["cancellation_handle", "abort_signal", "transport_executor"]
+  },
+  "notes": [
+    "TypeSpec and authored JSON Schema authority remain in ores-interfaces; this file is only a binding declaration.",
+    "Language runtimes may project field spelling idiomatically while preserving wire/semantic identity.",
+    "Product operation names and DTO schemas remain owned by product interfaces plus ores-stack/api-docs generation."
+  ]
+}

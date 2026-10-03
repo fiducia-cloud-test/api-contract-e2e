@@ -1,0 +1,13 @@
+@@ -17,6 +17,8 @@ mod page_assets;
+ mod rpc;
+ mod rpc_generated_tree;
+ mod rpc_guard;
++mod rpc_http_client_lane;
++mod rpc_http_client_lane_post;
+ mod rpc_legacy_guard;
+@@ -64,6 +66,7 @@ pub use page_assets::{
++pub use rpc_http_client_lane::sync_import_aliases as sync_rpc_client_import_aliases;
+@@ -297,6 +300,7 @@ pub fn sync_rpc_target(options: &RpcTargetSyncOptions) -> anyhow::Result<()> {
+         rpc_target::sync_rpc_target(&stable_options)?;
++        rpc_http_client_lane_post::materialize_from_canonical_sync(&stable_options)?;
+         rpc_target_evidence::sync_source_snapshots(&stable_options)
